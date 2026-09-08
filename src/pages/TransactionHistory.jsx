@@ -33,6 +33,12 @@ function TransactionHistory() {
       .finally(() => setLoading(false));
   }, [accountId]);
 
+  const getTransactionIcon = (type) => {
+    if (type.includes("withdraw")) return "↓";
+    if (type.includes("transfer")) return "↔";
+    return "↑";
+  };
+
   return (
     <DashboardLayout>
       <div className="page-heading"><div><span className="eyebrow">Account activity</span><h1 className="page-title">Transaction history</h1><p className="page-subtitle">Review activity across your Moneta accounts.</p></div></div>
@@ -59,25 +65,54 @@ function TransactionHistory() {
         <div className="surface empty-panel">No transactions yet. Your account activity will appear here.</div>
       )}
 
-      <div className="transaction-list surface">
-        {transactions.map((txn) => (
-          <div
-            key={txn.transaction_id}
-            className="transaction-row"
-          >
-            <div>
-              <p className="transaction-reference">{txn.reference_number}</p>
-              <p className="transaction-date">
-                {new Date(txn.created_at).toLocaleString()}
-              </p>
-            </div>
-            <div className="transaction-amount">
-              <p>{txn.amount}</p>
-              <span>{txn.status}</span>
-            </div>
-          </div>
-        ))}
-      </div>
+      {!loading && !error && transactions.length > 0 && (
+        <div className="transaction-table-wrap surface">
+          <table className="transaction-table">
+            <thead>
+              <tr>
+                <th scope="col">Type</th>
+                <th scope="col">Reference number</th>
+                <th scope="col">Date</th>
+                <th scope="col" className="transaction-table-amount">Amount</th>
+                <th scope="col">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {transactions.map((txn) => {
+                const transactionType = String(txn.type || txn.type_name || "").toLowerCase();
+                const isCredit = transactionType.includes("deposit") ||
+                  (transactionType.includes("transfer") && Number(txn.destination_account_id) === Number(accountId));
+                const amount = Math.abs(Number(txn.amount)).toFixed(2);
+                const amountClass = isCredit ? "is-credit" : "is-debit";
+
+                return (
+                  <tr key={txn.transaction_id}>
+                    <td>
+                      <span
+                        className={`transaction-icon ${amountClass}`}
+                        title={transactionType || "Transaction"}
+                        aria-label={transactionType || "Transaction"}
+                      >
+                        {getTransactionIcon(transactionType)}
+                      </span>
+                    </td>
+                    <td className="transaction-reference">{txn.reference_number}</td>
+                    <td className="transaction-date">{new Date(txn.created_at).toLocaleString()}</td>
+                    <td className={`transaction-table-amount ${amountClass}`}>
+                      {isCredit ? "+" : "-"}NPR {amount}
+                    </td>
+                    <td>
+                      <span className={`status-badge ${txn.status === "completed" ? "status-active" : "status-muted"}`}>
+                        {txn.status}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

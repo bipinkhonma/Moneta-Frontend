@@ -1,24 +1,46 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import axiosClient from "../api/axiosClient";
 
 const Register = () => {
   const [formData, setFormData] = useState({
-    fullName: '',
-    email: '',
-    password: '',
-    confirmPassword: ''
+    fullName: "",
+    email: "",
+    phone: "",
+    password: "",
+    confirmPassword: "",
   });
+  const [error, setError] = useState("");
+  const navigate = useNavigate();
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Handle registration logic
+    setError("");
+
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+
+    try {
+      await axiosClient.post("/auth/register", {
+        full_name: formData.fullName,
+        email: formData.email,
+        phone: formData.phone,
+        password: formData.password,
+      });
+      navigate("/login");
+    } catch (err) {
+      setError(err.response?.data?.message || "Registration failed");
+    }
   };
 
   return (
@@ -36,8 +58,10 @@ const Register = () => {
           <form onSubmit={handleSubmit} className="auth-form">
             <label className="field-label">Full name<input className="field-control" type="text" name="fullName" placeholder="Your full name" value={formData.fullName} onChange={handleChange} required /></label>
             <label className="field-label">Email address<input className="field-control" type="email" name="email" placeholder="you@example.com" value={formData.email} onChange={handleChange} required /></label>
+            <label className="field-label">Phone number<input className="field-control" type="tel" name="phone" placeholder="98XXXXXXXX" value={formData.phone} onChange={handleChange} required /></label>
             <label className="field-label">Password<input className="field-control" type="password" name="password" placeholder="Create a password" value={formData.password} onChange={handleChange} required /></label>
             <label className="field-label">Confirm password<input className="field-control" type="password" name="confirmPassword" placeholder="Repeat your password" value={formData.confirmPassword} onChange={handleChange} required /></label>
+            {error && <p style={{ color: "#dc2626", fontSize: "14px" }}>{error}</p>}
             <button type="submit" className="button-primary auth-submit">Create account</button>
           </form>
           <p className="auth-switch">Already have an account? <Link to="/login">Sign in</Link></p>

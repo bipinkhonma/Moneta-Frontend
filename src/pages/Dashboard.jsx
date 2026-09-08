@@ -31,7 +31,7 @@ function Dashboard() {
           try {
             const res = await axiosClient.get(`/accounts/${account.account_id}/transactions`);
             const txns = res.data.transactions || [];
-            allTransactions.push(...txns);
+            allTransactions.push(...txns.map((txn) => ({ ...txn, account_id: account.account_id })));
           } catch (err) {
             console.log(`Could not fetch transactions for account ${account.account_id}`);
           }
@@ -55,11 +55,9 @@ function Dashboard() {
   const activeCount = accounts.filter((acc) => acc.status === "active").length;
 
   const getTransactionIcon = (type) => {
-    // Determine if it's a deposit, withdrawal, or transfer based on transaction type
-    // This may need adjustment based on your backend's transaction type field
-    if (type && type.toLowerCase().includes("withdraw")) return "↓";
-    if (type && type.toLowerCase().includes("transfer")) return "↔";
-    return "↑"; // Default to deposit
+    if (type.includes("withdraw")) return "↓";
+    if (type.includes("transfer")) return "↔";
+    return "↑";
   };
 
   return (
@@ -82,21 +80,22 @@ function Dashboard() {
       {!loading && !error && (
         <>
           <div className="dashboard-summary">
-            <section className="balance-feature surface">
-              <div><span className="eyebrow">Total balance</span><p className="balance-amount">NPR {totalBalance.toFixed(2)}</p><p className="balance-caption">Available across {accounts.length} account{accounts.length === 1 ? "" : "s"}</p></div>
-              <span className="balance-seal">M</span>
-            </section>
+            <div className="balance-column">
+              <section className="balance-feature surface">
+                <div><span className="eyebrow">Total balance</span><p className="balance-amount">NPR {totalBalance.toFixed(2)}</p><p className="balance-caption">Available across {accounts.length} account{accounts.length === 1 ? "" : "s"}</p></div>
+                <span className="balance-seal">M</span>
+              </section>
+              <div className="dashboard-actions">
+                <button onClick={() => navigate("/deposit")} className="button-secondary">Deposit</button>
+                <button onClick={() => navigate("/withdraw")} className="button-primary">Withdraw</button>
+                <button onClick={() => navigate("/transfer")} className="button-primary">Transfer</button>
+                <button onClick={() => navigate("/beneficiaries")} className="button-primary">Beneficiaries</button>
+              </div>
+            </div>
             <div className="stat-grid">
               <StatCard label="Accounts" value={accounts.length} detail="All accounts" />
               <StatCard label="Active accounts" value={activeCount} detail="In good standing" />
             </div>
-          </div>
-
-          <div style={{ display: "flex", gap: "12px", marginBottom: "24px" }}>
-            <button onClick={() => navigate("/deposit")} className="button-primary" style={{ flex: 1 }}>Deposit</button>
-            <button onClick={() => navigate("/withdraw")} className="button-primary" style={{ flex: 1 }}>Withdraw</button>
-            <button onClick={() => navigate("/transfer")} className="button-primary" style={{ flex: 1 }}>Transfer</button>
-            <button onClick={() => navigate("/beneficiaries")} className="button-primary" style={{ flex: 1 }}>Beneficiaries</button>
           </div>
 
           <BalanceChart accounts={accounts} />
@@ -127,13 +126,15 @@ function Dashboard() {
               </div>
               <div className="transaction-list surface">
                 {transactions.map((txn) => {
-                  const isCredit = Number(txn.amount) >= 0;
-                  const amountColor = isCredit ? "var(--emerald)" : "var(--crimson)";
+                  const transactionType = String(txn.type || txn.type_name || "").toLowerCase();
+                  const isCredit = transactionType.includes("deposit") ||
+                    (transactionType.includes("transfer") && Number(txn.destination_account_id) === Number(txn.account_id));
+                  const amount = Math.abs(Number(txn.amount)).toFixed(2);
                   return (
                     <div key={txn.transaction_id} className="transaction-row">
-                      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                        <span style={{ fontSize: "18px", color: amountColor }}>
-                          {getTransactionIcon(txn.type)}
+                      <div className="transaction-summary">
+                        <span className={`transaction-icon ${isCredit ? "is-credit" : "is-debit"}`}>
+                          {getTransactionIcon(transactionType)}
                         </span>
                         <div>
                           <p className="transaction-reference">{txn.reference_number}</p>
@@ -142,9 +143,9 @@ function Dashboard() {
                           </p>
                         </div>
                       </div>
-                      <div className="transaction-amount">
-                        <p style={{ color: amountColor }}>
-                          {isCredit ? "+" : ""}{txn.amount}
+                      <div className={`transaction-amount ${isCredit ? "is-credit" : "is-debit"}`}>
+                        <p>
+                          {isCredit ? "+" : "-"}NPR {amount}
                         </p>
                         <span>{txn.status}</span>
                       </div>
